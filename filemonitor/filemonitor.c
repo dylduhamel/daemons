@@ -27,89 +27,107 @@
 int IeventQueue = -1;
 int IeventStatus = -1;
 
-int main(int argc, char** argv)
+int
+main (int argc, char **argv)
 {
-    char* basePath = NULL;
-    char* token = NULL;
-    char* notificatioMessage = NULL;
+  char *basePath = NULL;
+  char *token = NULL;
+  char *notificatioMessage = NULL;
 
-    char buffer[4096];
-    int readLength;
+  char buffer[4096];
+  int readLength;
 
-    const struct inotify_event* watchEvent;
-    /* Bitwise or mask. */
-    const uint32_t watchMask = IN_CREATE | IN_DELETE | IN_ACCESS | IN_CLOSE_WRITE | IN_MODIFY | IN_MOVE_SELF;
+  const struct inotify_event *watchEvent;
+  /* Bitwise or mask. */
+  const uint32_t watchMask = IN_CREATE | IN_DELETE | IN_ACCESS | IN_CLOSE_WRITE
+                             | IN_MODIFY | IN_MOVE_SELF;
 
-    if (argc < 2) {
-        fprintf(stderr, "USAGE: filemonitor PATH\n");
-        exit(EXT_FAILURE_TOO_FEW_ARGS);
+  if (argc < 2)
+  {
+    fprintf (stderr, "USAGE: filemonitor PATH\n");
+    exit (EXT_FAILURE_TOO_FEW_ARGS);
+  }
+
+  /* Allocate memory for path str. */
+  basePath = (char *)malloc (sizeof (char) * (strlen (argv[1]) + 1));
+  strcpy (basePath, argv[1]);
+
+  token = strtok (basePath, "/");
+
+  while (token != NULL)
+  {
+    basePath = token;
+    token = strtok (NULL, "/");
+  }
+
+  if (basePath == NULL)
+  {
+    fprintf (stderr, "Error getting base path.\n");
+    exit (EXT_ERR_BASE_PATH_NULL);
+  }
+
+  IeventQueue = inotify_init ();
+  if (IeventQueue == -1)
+  {
+    fprintf (stderr, "Error initializing inotify instance.\n");
+    exit (EXT_ERR_INIT_INOTIFY);
+  }
+
+  IeventStatus = inotify_add_watch (IeventQueue, argv[1], watchMask);
+  if (IeventStatus == -1)
+  {
+    fprintf (stderr, "Error adding file to watch instance.\n");
+  }
+
+  while (true)
+  {
+    printf ("Waiting for ievent...\n");
+
+    readLength = read (IeventQueue, buffer, sizeof (buffer));
+    if (readLength == -1)
+    {
+      fprintf (stderr, "Error reading from inotify instance.\n");
+      exit (EXT_ERR_READ_INOTIFY);
     }
 
-    /* Allocate memory for path str. */
-    basePath = (char*)malloc(sizeof(char) * (strlen(argv[1]) + 1));
-    strcpy(basePath, argv[1]);
+    for (char *bufferPointer = buffer; bufferPointer < buffer + readLength;
+         bufferPointer += sizeof (struct inotify_event) + watchEvent->len)
+    {
+      notificatioMessage = NULL;
+      watchEvent = (const struct inotify_event *)bufferPointer;
 
-    token = strtok(basePath, "/");
+      if (watchEvent->mask & IN_CREATE)
+      {
+        notificatioMessage = "File created.\n";
+      }
+      if (watchEvent->mask & IN_DELETE)
+      {
+        notificatioMessage = "File deleted.\n";
+      }
+      if (watchEvent->mask & IN_ACCESS)
+      {
+        notificatioMessage = "File accessed.\n";
+      }
+      if (watchEvent->mask & IN_CLOSE_WRITE)
+      {
+        notificatioMessage = "File written and closed.\n";
+      }
+      if (watchEvent->mask & IN_MODIFY)
+      {
+        notificatioMessage = "File modified.\n";
+      }
+      if (watchEvent->mask & IN_MOVE_SELF)
+      {
+        notificatioMessage = "File moved.\n";
+      }
 
-    while (token != NULL) {
-        basePath = token;
-        token = strtok(NULL, "/");
+      /* If an acction occoured not in our wath mask, we can proceed */
+      if (notificatioMessage == NULL)
+      {
+        continue;
+      }
+
+      printf ("%s\n", notificatioMessage);
     }
-
-    if (basePath == NULL) {
-        fprintf(stderr, "Error getting base path.\n");
-        exit(EXT_ERR_BASE_PATH_NULL);
-    }
-
-    IeventQueue = inotify_init();
-    if (IeventQueue == -1) {
-        fprintf(stderr, "Error initializing inotify instance.\n");
-        exit(EXT_ERR_INIT_INOTIFY);
-    }
-
-    IeventStatus = inotify_add_watch(IeventQueue, argv[1], watchMask);
-    if (IeventStatus == -1) {
-        fprintf(stderr, "Error adding file to watch instance.\n");
-    }
-
-    while (true) {
-        printf("Waiting for ievent...\n");
-
-        readLength = read(IeventQueue, buffer, sizeof(buffer));
-        if (readLength == -1) {
-            fprintf(stderr, "Error reading from inotify instance.\n");
-            exit(EXT_ERR_READ_INOTIFY);
-        }
-
-        for (char* bufferPointer = buffer; bufferPointer < buffer + readLength; bufferPointer += sizeof(struct inotify_event) + watchEvent->len) {
-            notificatioMessage = NULL;
-            watchEvent = (const struct inotify_event*)bufferPointer;
-
-            if (watchEvent->mask & IN_CREATE) {
-                notificatioMessage = "File created.\n";
-            }
-            if (watchEvent->mask & IN_DELETE) {
-                notificatioMessage = "File deleted.\n";
-            }
-            if (watchEvent->mask & IN_ACCESS) {
-                notificatioMessage = "File accessed.\n";
-            }
-            if (watchEvent->mask & IN_CLOSE_WRITE) {
-                notificatioMessage = "File written and closed.\n";
-            }
-            if (watchEvent->mask & IN_MODIFY) {
-                notificatioMessage = "File modified.\n";
-            }
-            if (watchEvent->mask & IN_MOVE_SELF) {
-                notificatioMessage = "File moved.\n";
-            }
-
-            /* If an acction occoured not in our wath mask, we can proceed */
-            if (notificatioMessage == NULL) {
-                continue;
-            }
-
-            printf("%s\n", notificatioMessage);
-        }
-    }
+  }
 }
