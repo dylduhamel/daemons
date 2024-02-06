@@ -22,17 +22,41 @@
 #define EXT_ERR_ADD_WATCH 3
 #define EXT_ERR_BASE_PATH_NULL 4
 #define EXT_ERR_READ_INOTIFY 5
+#define EXT_ERR_INIT_LIBNOTIFY 6
 
 /* The fd for incoming events */
 int IeventQueue = -1;
 int IeventStatus = -1;
 
+char *ProgramTitle = "filemonitor";
+
+/* Handle successful exit of daemon */
+void
+signal_handler (int signal)
+{
+  int closeStatus = -1;
+  printf ("Signal recieved, cleaning up...\n");
+
+  closeStatus = inotify_rm_watch (IeventQueue, IeventStatus);
+  if (closeStatus == -1)
+  {
+    fprintf (stderr, "Error removing from watch queue,\n");
+  }
+
+  close (IeventQueue);
+  exit (EXT_SUCCESS);
+}
+
 int
 main (int argc, char **argv)
 {
+  bool libnotifyInitStatus = false;
+
   char *basePath = NULL;
   char *token = NULL;
   char *notificatioMessage = NULL;
+
+  NotifyNotification *notifyHandle;
 
   char buffer[4096];
   int readLength;
@@ -66,6 +90,13 @@ main (int argc, char **argv)
     exit (EXT_ERR_BASE_PATH_NULL);
   }
 
+  libnotifyInitStatus = notify_init (ProgramTitle);
+  if (!libnotifyInitStatus)
+  {
+    fprintf (stderr, "Error initializing libnotify.\n");
+    exit (EXT_ERR_INIT_LIBNOTIFY);
+  }
+
   IeventQueue = inotify_init ();
   if (IeventQueue == -1)
   {
@@ -77,7 +108,13 @@ main (int argc, char **argv)
   if (IeventStatus == -1)
   {
     fprintf (stderr, "Error adding file to watch instance.\n");
+    exit (EXT_ERR_ADD_WATCH);
   }
+
+  /* Register disposition of signal to handler */
+  signal (SIGABRT, signal_handler);
+  signal (SIGINT, signal_handler);
+  signal (SIGTERM, signal_handler);
 
   while (true)
   {
@@ -124,10 +161,20 @@ main (int argc, char **argv)
       /* If an acction occoured not in our wath mask, we can proceed */
       if (notificatioMessage == NULL)
       {
+        printf ("Not interested in file event.\n");
         continue;
       }
 
-      printf ("%s\n", notificatioMessage);
+      notifyHandle = notify_notification_new (basePath, notificatioMessage,
+                                              "dialog-information");
+      if (notifyHandle == NULL)
+      {
+        fprintf (stderr, "Error notify handle is null.\n");
+        continue;
+      }
+
+      notify_notification_set_urgency (notifyHandle, NOTIFY_URGENCY_CRITICAL);
+      notify_notification_show (notifyHandle, NULL);
     }
   }
 }

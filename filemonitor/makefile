@@ -7,4 +7,4 @@ TARGET=filemonitor
 all: $(TARGET)
 
 $(TARGET):
-	$(CC) $(CFLAGS) `pkg-config --cflags --libs libnotify` $(TARGET).c -o build/$(TARGET)d
+	$(CC) $(CFLAGS) $(TARGET).c `pkg-config --cflags --libs libnotify` -o build/$(TARGET)d
