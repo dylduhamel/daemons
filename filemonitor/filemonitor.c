@@ -1,7 +1,7 @@
 /**
  * @author Dylan Duhamel {@literal duhadm19@alumni.wfu.edu}
  * @date Feb. 1, 2024
- * Filestem deamon to notify modifications to given filemonitor
+ * Filestem deamon to notify desktop env with file changes
  **/
 
 #include <signal.h>
