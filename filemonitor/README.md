@@ -1,6 +1,6 @@
 # filemonitor Daemon
 
-FileMonitor is a Linux daemon designed to monitor specified files for changes, including when they are opened, written to, moved, or closed. Upon detecting any of these events, filemonitor sends a desktop notification in real time.
+filemonitor is a Linux daemon designed to monitor specified files for changes, including when they are opened, written to, moved, or closed. Upon detecting any of these events, filemonitor sends a desktop notification in real time.
 
 ## Compilation
 You can sumply run `make` to compile the daemon
